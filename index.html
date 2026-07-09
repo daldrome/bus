@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Office Bus Dashboard</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #f1f3f5;
+      margin: 0;
+      padding: 15px;
+      max-width: 400px;
+    }
+    h2 { font-size: 18px; color: #212529; margin-bottom: 15px; text-align: center; }
+    .stop-card {
+      background: white;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 15px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    .stop-title { font-size: 14px; font-weight: bold; color: #495057; border-bottom: 1px solid #dee2e6; padding-bottom: 4px; margin-bottom: 8px; }
+    .bus-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; font-size: 15px; }
+    .bus-number { font-weight: bold; background: #e9ecef; padding: 2px 8px; border-radius: 4px; color: #343a40; }
+    .timings { font-weight: 600; color: #2b8a3e; }
+    .no-buses { font-size: 12px; color: #868e96; font-style: italic; }
+  </style>
+</head>
+<body>
+
+  <h2>🚍 Homebound Bus Timings</h2>
+  
+  <div class="stop-card">
+    <div class="stop-title">IT Bus Stop (16189)</div>
+    <div id="stop-16189">Loading...</div>
+  </div>
+
+  <div class="stop-card">
+    <div class="stop-title">Opp Heng Mui Keng Terr (16061)</div>
+    <div id="stop-16061">Loading...</div>
+  </div>
+
+  <div class="stop-card">
+    <div class="stop-title">Bef West Coast Pk (16241)</div>
+    <div id="stop-16241">Loading...</div>
+  </div>
+
+  <script>
+    // CONFIGURATION: Define which bus stops you want to track
+    const stops = ['16189', '16061', '16241'];
+
+    // CONFIGURATION: Define exactly which bus numbers you want to see at each stop.
+    // (Feel free to change these numbers to the exact ones you take!)
+    const allowedBuses = {
+      '16189': ['96', '151'],      // Only show these buses at IT Bus Stop
+      '16061': ['183', '143'], // Only show these buses at Opp Heng Mui Keng Terr
+      '16241': ['176']       // Only show these buses at Bef West Coast Pk
+    };
+
+    async function fetchTimings() {
+      for (const stop of stops) {
+        const container = document.getElementById(`stop-${stop}`);
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+          const response = await fetch(`https://arrivelah2.busrouter.sg/?id=${stop}`, { signal: controller.signal });
+          clearTimeout(timeoutId);
+          
+          const data = await response.json();
+          
+          if (!data.services || data.services.length === 0) {
+            container.innerHTML = '<div class="no-buses">No active public buses tracked right now.</div>';
+            continue;
+          }
+
+          let html = '';
+          let visibleBusCount = 0;
+
+          data.services.forEach(srv => {
+            // FILTER: Check if the current bus service is in your allowed list for this stop
+            const targetBusesForThisStop = allowedBuses[stop] || [];
+            if (!targetBusesForThisStop.includes(srv.no)) {
+              return; // Skip this bus entirely if it's not on your list
+            }
+
+            visibleBusCount++;
+
+            const nextMin = srv.next && srv.next.duration_ms ? Math.max(0, Math.floor(srv.next.duration_ms / 60000)) : null;
+            const subMin = srv.subsequent && srv.subsequent.duration_ms ? Math.max(0, Math.floor(srv.subsequent.duration_ms / 60000)) : null;
+            
+            const nextDisplay = nextMin === null ? 'No Data' : (nextMin === 0 ? "Arr" : `${nextMin}m`);
+            const subDisplay = subMin === null ? '-' : (subMin === 0 ? "Arr" : `${subMin}m`);
+
+            html += `
+              <div class="bus-row">
+                <span class="bus-number">${srv.no}</span>
+                <span class="timings">${nextDisplay}, ${subDisplay}</span>
+              </div>`;
+          });
+
+          // If the stop has active buses, but none match your preferred list
+          if (visibleBusCount === 0) {
+            container.innerHTML = '<div class="no-buses">None of your selected buses are arriving soon.</div>';
+          } else {
+            container.innerHTML = html;
+          }
+
+        } catch (error) {
+          if (error.name === 'AbortError') {
+            container.innerHTML = '<div class="no-buses" style="color:#e67e22;">Server response timed out. Retrying...</div>';
+          } else {
+            container.innerHTML = '<div class="no-buses" style="color:#868e96;">Off-service or no active schedules.</div>';
+          }
+        }
+      }
+    }
+
+    // Run immediately on open and refresh every 20 seconds
+    fetchTimings();
+    setInterval(fetchTimings, 20000);
+  </script>
+</body>
+</html>
