@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Office Bus Dashboard</title>
+  <title>Commute Bus Dashboard</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -12,7 +12,11 @@
       padding: 15px;
       max-width: 400px;
     }
-    h2 { font-size: 18px; color: #212529; margin-bottom: 15px; text-align: center; }
+    h2 { font-size: 18px; color: #212529; margin: 15px 0 10px 0; text-align: center; }
+    .section-divider {
+      border-top: 2px dashed #ced4da;
+      margin: 25px 0 15px 0;
+    }
     .stop-card {
       background: white;
       border-radius: 8px;
@@ -29,7 +33,26 @@
 </head>
 <body>
 
-  <h2>🚍 Homebound Bus Timings</h2>
+  <h2>☀️ Morning (Office-Bound)</h2>
+  
+  <div class="stop-card">
+    <div class="stop-title">Blk 329 (17179)</div>
+    <div id="stop-17179">Loading...</div>
+  </div>
+
+  <div class="stop-card">
+    <div class="stop-title">Clementi Int (17009)</div>
+    <div id="stop-17009">Loading...</div>
+  </div>
+
+  <div class="stop-card">
+    <div class="stop-title">Aft Core Universities (17239)</div>
+    <div id="stop-17239">Loading...</div>
+  </div>
+
+  <div class="section-divider"></div>
+
+  <h2>🌙 Evening (Homebound)</h2>
   
   <div class="stop-card">
     <div class="stop-title">IT Bus Stop (16189)</div>
@@ -47,20 +70,27 @@
   </div>
 
   <script>
-    // CONFIGURATION: Define which bus stops you want to track
-    const stops = ['16189', '16061', '16241'];
+    // 1. ALL TRACKED BUS STOPS
+    const stops = ['17179', '17009', '17239', '16189', '16061', '16241'];
 
-    // CONFIGURATION: Define exactly which bus numbers you want to see at each stop.
-    // (Feel free to change these numbers to the exact ones you take!)
+    // 2. BUS FILTERS PER STOP
     const allowedBuses = {
-      '16189': ['96', '151'],      // Only show these buses at IT Bus Stop
-      '16061': ['183', '30'], // Only show these buses at Opp Heng Mui Keng Terr
-      '16241': ['176']       // Only show these buses at Bef West Coast Pk
+      // Morning Stops
+      '17179': ['183'], 
+      '17009': ['96'],  
+      '17239': ['96'],  
+      
+      // Evening Stops
+      '16189': ['95', '151'],      
+      '16061': ['10', '30', '143'], 
+      '16241': ['175', '176']       
     };
 
     async function fetchTimings() {
       for (const stop of stops) {
         const container = document.getElementById(`stop-${stop}`);
+        if (!container) continue;
+
         try {
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 5000);
@@ -79,10 +109,9 @@
           let visibleBusCount = 0;
 
           data.services.forEach(srv => {
-            // FILTER: Check if the current bus service is in your allowed list for this stop
             const targetBusesForThisStop = allowedBuses[stop] || [];
             if (!targetBusesForThisStop.includes(srv.no)) {
-              return; // Skip this bus entirely if it's not on your list
+              return; 
             }
 
             visibleBusCount++;
@@ -100,9 +129,8 @@
               </div>`;
           });
 
-          // If the stop has active buses, but none match your preferred list
           if (visibleBusCount === 0) {
-            container.innerHTML = '<div class="no-buses">None of your selected buses are arriving soon.</div>';
+            container.innerHTML = '<div class="no-buses">Selected bus is currently out of service.</div>';
           } else {
             container.innerHTML = html;
           }
